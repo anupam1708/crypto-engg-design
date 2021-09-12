@@ -20,10 +20,10 @@ public class LamportSignatures {
 		String message = "Anupam";
 
 		//sign
-		BigInteger[] signature = lamport.sign(publicPrivateKeys.getSecretKey(), message);
+		Signature signature = lamport.sign(publicPrivateKeys.getSecretKey(), message);
 
 		//verify
-		boolean isValidSignature = lamport.verify(publicPrivateKeys.getPublicKey(), message, signature);
+		boolean isValidSignature = lamport.verify(publicPrivateKeys.getPublicKey(), message, signature.getSignature());
 
 		System.out.println("The signature is valid: " + isValidSignature);
 
@@ -51,21 +51,30 @@ public class LamportSignatures {
 		return new PublicPrivateKeys(secretKey, publicKey);
 	}
 
-	public BigInteger[] sign(BigInteger[][] secretKey, String message) throws NoSuchAlgorithmException {
+	public Signature sign(BigInteger[][] secretKey, String message) throws NoSuchAlgorithmException {
 
 		MessageDigest digest = MessageDigest.getInstance("SHA-256");
 		byte[] encodedhash = digest.digest(message.getBytes(StandardCharsets.UTF_8));
 		BigInteger[] signature = new BigInteger[256];
+		Signature signatureObj = new Signature(signature, true);
 
 		BitSet bitSet = BitSet.valueOf(encodedhash);
 		for (int i=0; i< 256; i++) {
 			if(bitSet.get(i)) {
+				if(secretKey[1][i] == null) {
+					signatureObj.setSuccessful(false);
+					break;
+				}
 				signature[i] = secretKey[1][i];
 			} else {
+				if(secretKey[0][i] == null) {
+					signatureObj.setSuccessful(false);
+					break;
+				}
 				signature[i] = secretKey[0][i];
 			}
 		}
-		return signature;
+		return signatureObj;
 	}
 
 	public boolean verify(BigInteger[][] publicKey, String message, BigInteger[] signature) throws NoSuchAlgorithmException {
@@ -75,13 +84,13 @@ public class LamportSignatures {
 
 		BitSet bitSet = BitSet.valueOf(encodedhash);
 
-		BigInteger[] revealedPublicKey = new BigInteger[256];
+		BigInteger[] messageBitBasedPublicKey = new BigInteger[256];
 
 		for (int i=0; i< 256; i++) {
 			if(bitSet.get(i)) {
-				revealedPublicKey[i] = publicKey[1][i];
+				messageBitBasedPublicKey[i] = publicKey[1][i];
 			} else {
-				revealedPublicKey[i] = publicKey[0][i];
+				messageBitBasedPublicKey[i] = publicKey[0][i];
 			}
 		}
 
@@ -93,12 +102,11 @@ public class LamportSignatures {
 		}
 
 		for (int i=0; i< 256; i++) {
-			if(!revealedPublicKey[i].equals(hashedSignature[i])) {
+			if(!messageBitBasedPublicKey[i].equals(hashedSignature[i])) {
 				return false;
 			}
 		}
 		return true;
-
 
 	}
 
